@@ -3,17 +3,22 @@ import pytest
 from unittest.mock import patch
 import json
 from src.util.dao import DAO
+from dotenv import dotenv_values
 import pymongo
+import os
 
 @pytest.fixture
 def sut():
-    with open('./test/dao_mongo/validator_test.json', 'r') as f:
+    base_dir = os.path.dirname(__file__)
+    file = os.path.join(base_dir, 'validator_test.json')
+    LOCAL_MONGO_URL = dotenv_values('.env').get('MONGO_URL')
+    dbUrl = os.environ.get('MONGO_URL', LOCAL_MONGO_URL)
+
+    with open(file, 'r') as f:
         validator = json.load(f)
 
     with patch('src.util.dao.getValidator') as mockedValidator, \
         patch('src.util.dao.os.environ.get') as mockedEnvURL:
-
-        dbUrl = "mongodb://root:root@localhost:27017"
 
         mockedValidator.return_value = validator
         mockedEnvURL.return_value = dbUrl
