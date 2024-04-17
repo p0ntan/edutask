@@ -1,6 +1,5 @@
 import pymongo.errors
 import pytest
-import unittest.mock as mock
 from unittest.mock import patch
 import json
 from src.util.dao import DAO
@@ -14,21 +13,12 @@ def sut():
     with patch('src.util.dao.getValidator') as mockedValidator, \
         patch('src.util.dao.os.environ.get') as mockedEnvURL:
 
-        dbUrl = "mongodb://localhost:27017"
+        dbUrl = "mongodb://root:root@localhost:27017"
 
         mockedValidator.return_value = validator
         mockedEnvURL.return_value = dbUrl
 
-        data = {
-            "todo": "Fix the tv",
-            "done": False,
-        }
-
         sut = DAO("test")
-
-        client = pymongo.MongoClient(dbUrl)
-        collection = client.edutask.test
-        collection.insert_one(data)
 
         yield sut
 
@@ -45,12 +35,7 @@ class TestCreateTodo:
         }
 
         validation_result = sut.create(data)
-        assert validation_result.keys() == {"_id", "todo", "done"}  # TODO fix assertion
-        # assert validation_result == {
-        #     "_id": "",
-        #     "todo": "Fix the wall",
-        #     "done": True
-        # }
+        assert "_id" in validation_result and data.items() <= validation_result.items()
 
     @pytest.mark.parametrize('data', [
         ({
@@ -69,5 +54,12 @@ class TestCreateTodo:
         }),
     ])
     def test_invalid_data(self, sut, data):
+        entryData = {
+            "todo": "Fix the tv",
+            "done": False,
+        }
+
+        sut.create(entryData)
+
         with pytest.raises(pymongo.errors.WriteError):
             sut.create(data)
