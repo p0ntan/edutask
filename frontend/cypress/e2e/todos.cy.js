@@ -3,9 +3,10 @@ describe('Interact with todos on an existing task', () => {
   let uid // user id
   let name // name of the user (firstName + ' ' + lastName)
   let email // email of the user
+  let taskId // taskId
 
   before(function () {
-    // create a fabricated user from a fixture
+    // Create a test-user
     cy.fixture('user.json')
       .then((user) => {
         cy.request({
@@ -19,49 +20,113 @@ describe('Interact with todos on an existing task', () => {
           email = user.email
         })
       })
-
-    cy.fixture('test-task.json')
-      .then((task) => {
-        cy.request({
-          method: 'POST',
-          form: true,
-          url: 'http://localhost:5000/tasks/create',
-          body: {
-            userid: uid,
-            ...task
-          }
-        })
-      })
   })
 
   beforeEach(function () {
+    // Add task for test-user before each test
+    // Contains one todo "Hold my beer and watch this"
+    cy.fixture('test-task.json')
+    .then((task) => {
+      cy.request({
+        method: 'POST',
+        form: true,
+        url: 'http://localhost:5000/tasks/create',
+        body: {
+          userid: uid,
+          ...task
+        }
+      }).then((response) => {
+        taskId = response.body[0]._id.$oid
+      })
+    })
+
     // Go to the detalied view for a task
-    cy.viewport(1920, 1080)
     cy.visit('http://localhost:3000')
-    cy.get('.inputwrapper #email')
+      .get('.inputwrapper #email')
       .type(email)
-    cy.get('form')
+      .get('form')
       .submit()
-    cy.get('.container-element a').click()
+      .get('.container-element a').click()
   })
 
-  it('should have a disabled button when input is missing', () => {
-    cy.get('ul.todo-list li form input[type=submit]')
+  it('form should have an empty input-field and a disabled button', () => {
+    cy.get('.popup form input[type=text]')
+      .should('have.value', '')
+    cy.get('.popup form input[type=submit]')
       .should('be.disabled')
   })
 
-  // it('should add a todo to bottom of list', () => {
-  //   cy.get('ul.todo-list li form input[type=text]')
-  //     .type("Woop woop.")
-  //   cy.get('ul.todo-list li form')
-  //     .submit()
-  //     .then(() => {
-  //       cy.get('ul.todo-list li.todo-item')
-  //         .then(() => {
+  it('should add a todo to bottom of list', () => {
+    let textString = "This is a todo for testing"
 
-  //         })
-  //     })
-  // })
+    cy.get('.popup form input[type=text]')
+      .type(textString)
+      .get('.popup form')
+      .submit()
+
+    cy.get('li.todo-item')
+      .last()
+      .should('contain.text', textString)
+  })
+
+  it('should mark the a todo as done with a strike through', () => {
+    cy.get('li.todo-item')
+      .first()
+      .find('.checker')
+      .click()
+
+    cy.wait(100)
+
+    cy.get('li.todo-item')
+      .first()
+      .find('.editable')
+      .invoke('css', 'text-decoration')
+      .should('include', 'line-through')
+  })
+
+  it('should mark the a todo as active and remove strike through', () => {
+    cy.get('li.todo-item')
+      .first()
+      .find('.checker')
+      .click()
+
+    cy.wait(100)
+
+    cy.get('li.todo-item')
+      .first()
+      .find('.checker')
+      .click()
+
+    cy.wait(100)
+
+    cy.get('li.todo-item')
+      .first()
+      .find('.editable')
+      .invoke('css', 'text-decoration')
+      .should('not.include', 'line-through')
+  })
+
+  it('should delete the todo', () => {
+    cy.get('li.todo-item')
+      .last()
+      .find('.remover')
+      .click()
+
+    cy.wait(100)
+
+    cy.get('li.todo-item')
+      .should('not.exist')
+  })
+
+  afterEach(function () {
+    // Remove task after each testcase
+    cy.request({
+      method: 'DELETE',
+      url: `http://localhost:5000/tasks/byid/${taskId}`
+    }).then((response) => {
+      cy.log(response.body)
+    })
+  })
 
   after(function () {
     // clean up by deleting the user from the database
