@@ -25,7 +25,7 @@ class UserController(Controller):
             Exception -- in case any database operation fails
         """
 
-        if not re.fullmatch(emailValidator, email):
+        if email is None or not re.fullmatch(emailValidator, email):
             raise ValueError('Error: invalid email address')
 
         try:
